@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <script src="https://www.gstatic.com/firebasejs/7.2.3/firebase.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.0/moment.min.js"></script>
+</head>
+<h1>Google Sign-in Test</h1>
+<p id="status">Ready</p>
+<script src="./javascripts/firebase_config.js"></script> <!-- import firebaseConfig -->
+<script>
+  var displayName, email, uid, providerData;
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+
+  function toggleStatus(b) {
+    const button = document.querySelectorAll('button');
+    button.forEach(function(btn) {
+      btn.disabled = b;
+    });
+
+    document.getElementById('status').innerText = (b) ? "Waiting for response..." : "Ready";
+  }
+
+  function toggleSignIn() {
+    toggleStatus(true);
+    if (!firebase.auth().currentUser) {
+      var provider = new firebase.auth.GoogleAuthProvider();
+      provider.addScope('https://www.googleapis.com/auth/userinfo.email');
+      provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
+
+      firebase.auth().languageCode = 'ko';
+
+      firebase.auth().signInWithPopup(provider).then(function (result) {
+        var token = result.credential.accessToken;
+        var user = result.user;
+
+        location.reload(); //test
+
+      }).catch(function (error) {
+        var errorCode = error.code;
+        var errorMessage = error.message;
+        var email = error.email;
+        var credential = error.credential;
+
+        switch (error.code) {
+          case "auth/popup-closed-by-user":
+            alert("사용자가 작업을 취소했습니다.");
+            break;
+          case "auth/account-exists-with-different-credential":
+            alert("You have already signed up with a different auth provider for that email.");
+            break;
+          default:
+            console.error(error);
+            break;
+        }
+
+        toggleStatus(false);
+      });
+    } else {
+      if (confirm("로그아웃 하시겠습니까?")) {
+        firebase.auth().signOut().then(function() {
+          // Sign-out successful.
+          location.reload(); //test
+        }).catch(function(error) {
+          // An error happened.
+          console.error(error);
+          toggleStatus(false);
+        });
+      }
+      else {
+        toggleStatus(false);
+      }
+    }
+
+  }
+
+  function initApp() {
+    // Listening for auth state changes.
+    firebase.auth().onAuthStateChanged(function (user) {
+      if (user) {
+        displayName = user.displayName;
+        email = user.email;
+        uid = user.uid;
+        providerData = user.providerData;
+        document.getElementById('btn-toggle').innerText = "Sign Out";
+      } else {
+        // logout
+        displayName = null;
+        email = null;
+        uid = null;
+        providerData = null;
+      }
+
+    });
+  }
+  window.onload = function () {
+    initApp();
+  }
+
+  function dbTest() {
+    if (!firebase.auth().currentUser) {
+      alert("먼저 로그인해주세요.");
+      return;
+    }
+    var db = firebase.firestore();
+    var today = moment().format('YYYY[-]MM[-]DD');
+
+    db.collection("users").doc(uid).collection("Records").doc(today).set({
+      depressStatus: 5
+    });
+
+    db.collection("users").doc(uid).set({
+      userInfo: providerData
+    });
+
+    // db.collection("users").doc(uid).collection("test").get().then((querySnapshot) => {
+    //   querySnapshot.forEach((doc) => {
+    //     console.log(`${doc.id} => ${doc.data()}`);
+    //   });
+    // });
+
+    alert("done");
+  }
+
+</script>
+
+<body>
+<button id="btn-toggle" onclick="toggleSignIn(); return false;">Sign In</button>
+<button onclick="dbTest(); return false;">DB insertion test</button>
+</body>
+
+</html>`
